@@ -2,28 +2,14 @@
   <span>
     <ion-item v-if="position === 'right'">
       <span>{{ text }}</span>
-      <ion-icon class="icon-right" :name="icon" />
+      <ion-icon v-bind:style="getStyle()" :name="icon" />
     </ion-item>
     <ion-item v-else>
-      <ion-icon class="icon-left" :name="icon" />
+      <ion-icon v-bind:style="getStyle()" :name="icon" />
       <span>{{ text }}</span>
     </ion-item>
   </span>
 </template>
-
-<style lang="scss" scoped>
-ion-item {
-  ion-icon, span {
-    display: inline-block;
-    vertical-align: middle;
-  }
-
-  ion-icon {
-    &.icon-left { padding-right: 4px; }
-    &.icon-right { padding-left: 4px; }
-  }
-}
-</style>
 
 <script>
 export default {
@@ -41,6 +27,26 @@ export default {
       type: String,
       default: 'left',
     },
+    padding: {
+      type: String,
+      default: '4px',
+    },
+  },
+  methods: {
+    getStyle() {
+      const style = {};
+      style[this.position === 'left' ? 'padding-right' : 'padding-left'] = this.padding;
+      return style;
+    },
   },
 };
 </script>
+
+<style lang="scss" scoped>
+ion-item {
+  ion-icon, span {
+    display: inline-block;
+    vertical-align: middle;
+  }
+}
+</style>

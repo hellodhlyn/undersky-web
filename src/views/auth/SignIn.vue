@@ -27,16 +27,43 @@ export default {
     };
   },
   methods: {
-    signIn() {
-      query(`signInWithGoogle(token: "${this.googleIdToken}") { registered accessToken secretToken }`).then((data) => {
-        if (data.signInWithGoogle.registered) {
-          const { accessToken, secretToken } = data.signInWithGoogle;
-          this.$localStorage.set('undersky.accessToken', accessToken);
-          this.$localStorage.set('undersky.secretToken', secretToken);
-          this.$router.push({ name: 'index' });
-        } else {
+    signIn(quiet) {
+      const expiredAt = this.$localStorage.get('undersky.auth.validUntil', -1, Number);
+      if (expiredAt > (new Date()).getTime()) {
+        this.$notify({
+          group: 'undersky',
+          title: '로그인 성공',
+          text: '이미 로그인되어있습니다.',
+          type: 'success',
+        });
+        this.$router.push({ name: 'index' });
+        return;
+      }
+
+      query(`signInWithGoogle(token: "${this.googleIdToken}") { registered accessToken secretToken validUntil }`).then((data) => {
+        if (!data.signInWithGoogle.registered) {
           this.state = 'signup';
+          return;
         }
+
+        const { accessToken, secretToken, validUntil } = data.signInWithGoogle;
+        this.$localStorage.set('undersky.auth.accessToken', accessToken);
+        this.$localStorage.set('undersky.auth.secretToken', secretToken);
+
+        query('me { uuid email username }', true).then((meData) => {
+          if (!quiet) {
+            this.$notify({
+              group: 'undersky',
+              title: '로그인 성공',
+              text: '로그인에 성공했습니다. 환영합니다!',
+              type: 'success',
+            });
+          }
+
+          this.$localStorage.set('undersky.auth.userInfo', JSON.stringify(meData.me));
+          this.$localStorage.set('undersky.auth.validUntil', new Date(validUntil).getTime());
+          this.$router.push({ name: 'index' });
+        }).catch(() => this.onSignInFail());
       });
     },
     onSignIn(user) {
@@ -44,14 +71,29 @@ export default {
       this.signIn();
     },
     onSignInFail() {
-      alert('로그인에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      this.$notify({
+        group: 'undersky',
+        title: '로그인 실패',
+        text: '로그인에 실패했습니다. 잠시 후 다시 시도해주세요.',
+        type: 'error',
+      });
     },
     onRegister() {
       mutation(`registerUserWithGoogle(input: { token: "${this.googleIdToken}", username: "${this.input.username}" }) { result }`).then(() => {
-        alert('회원정보 등록이 완료되었습니다.');
-        this.signIn();
+        this.$notify({
+          group: 'undersky',
+          title: '회원정보 등록 성공',
+          text: '회원정보 등록에 성공했습니다. 환영합니다!',
+          type: 'success',
+        });
+        this.signIn(true);
       }).catch((err) => {
-        alert(err[0].message);
+        this.$notify({
+          group: 'undersky',
+          title: '오류 발생',
+          text: err[0].message,
+          type: 'error',
+        });
       });
     },
   },
@@ -112,7 +154,7 @@ export default {
       margin: 5px 0;
       font-size: 16px;
       border: 0;
-      background: #3f51b5;
+      background: #303f9f;
       color: #fafafa;
     }
   }
